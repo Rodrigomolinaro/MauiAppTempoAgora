@@ -1,5 +1,6 @@
 ﻿using MauiAppTempoAgora.Models;
 using Newtonsoft.Json.Linq;
+using System.Net;
 
 namespace MauiAppTempoAgora.Services
 {
@@ -17,19 +18,20 @@ namespace MauiAppTempoAgora.Services
 
             using (HttpClient client = new HttpClient())
             {
+                HttpResponseMessage response = await client.GetAsync(url);
 
-                HttpResponseMessage resp = await client.GetAsync(url);
-
-                if(resp.IsSuccessStatusCode)
+                if (response.IsSuccessStatusCode)
                 {
-                    string json = await resp.Content.ReadAsStringAsync();
+                    // Lógica de sucesso (Lê o JSON e preenche o objeto manualmente)
+                    string json = await response.Content.ReadAsStringAsync();
                     var rascunho = JObject.Parse(json);
 
-                    DateTime time = new();
+                    // Inicializa a data base para conversão do Unix Timestamp
+                    DateTime time = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
                     DateTime sunrise = time.AddSeconds((double)rascunho["sys"]["sunrise"]).ToLocalTime();
                     DateTime sunset = time.AddSeconds((double)rascunho["sys"]["sunset"]).ToLocalTime();
 
-                    t = new()
+                    t = new Tempo()
                     {
                         lon = (double)rascunho["coord"]["lon"],
                         lat = (double)rascunho["coord"]["lat"],
@@ -41,11 +43,20 @@ namespace MauiAppTempoAgora.Services
                         description = (string)rascunho["weather"][0]["description"],
                         sunrise = sunrise.ToString(),
                         sunset = sunset.ToString(),
-                    }; //Fecha obj do tempo
-                } //Fecha if se o status do servidor foi de sucesso
-            } // fecha laço using 
-
-
+                    };
+                }
+                // EXERCÍCIO PARTE 2: Verifica se o erro é 404 (Not Found)
+                else if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new Exception("cidade_nao_encontrada");
+                }
+                // Captura qualquer outro erro HTTP (ex: 500, 401)
+                else
+                {
+                    // Como não há mais código abaixo do throw, não gerará erro de compilação
+                    throw new Exception($"Erro na requisição: {response.StatusCode}");
+                }
+            }
 
             return t;
         }
